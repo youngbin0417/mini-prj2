@@ -81,7 +81,7 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                       {job.status === 'completed' && job.video_url && (
                         <>
                           <a 
-                            href={`http://localhost:8000${job.video_url}`} 
+                            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
                             target="_blank" 
                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="미리보기"
@@ -89,7 +89,7 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                             <Play size={18} />
                           </a>
                           <a 
-                            href={`http://localhost:8000${job.video_url}`} 
+                            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
                             download 
                             className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="다운로드"
