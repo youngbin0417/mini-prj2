@@ -1,6 +1,7 @@
 import os
 import uuid
 import threading
+import shutil
 from typing import Dict, Any
 from pathlib import Path
 

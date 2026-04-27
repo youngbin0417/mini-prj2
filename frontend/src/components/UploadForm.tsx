@@ -44,7 +44,7 @@ const UploadForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
           <p className="text-slate-500 text-sm">PPTX 파일을 업로드하여 AI 강의 영상을 생성하세요.</p>
         </div>
         <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-          Powered by GPT-4o
+          Powered by AIVLE
         </div>
       </div>
 
@@ -80,7 +80,7 @@ const UploadForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
 
         <AnimatePresence>
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-4 p-4 bg-red-50 text-red-600 rounded-xl flex items-center gap-3 text-sm"
@@ -96,8 +96,8 @@ const UploadForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
           disabled={!file || isUploading}
           className={`
             w-full mt-6 py-4 rounded-xl font-bold text-white transition-all
-            ${!file || isUploading 
-              ? 'bg-slate-200 cursor-not-allowed' 
+            ${!file || isUploading
+              ? 'bg-slate-200 cursor-not-allowed'
               : 'bg-primary hover:bg-primary-hover shadow-lg shadow-primary/25 active:scale-[0.98]'}
           `}
         >
