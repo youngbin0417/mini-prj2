@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+@theme {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-glass: rgba(255, 255, 255, 0.7);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.glass-card {
+  background: var(--color-glass);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-gradient {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s infinite ease-in-out;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}

@@ -1,0 +1,11 @@
+gradio
+langchain-community
+langchain-openai
+langchain-tavily
+langgraph
+openai
+pillow
+python-pptx
+fastapi
+uvicorn
+python-multipart
