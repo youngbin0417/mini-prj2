@@ -396,22 +396,43 @@ def node_gen_script(state: State) -> State:
     page_content = state.get("cur_page_content", "")
     prompt_config = state.get("prompt", {})
     work_dir = state.get("work_dir", ".")
-    slide_number = state.get("slide_index", 0) + 1
+    slide_index = state.get("slide_index", 0)
+    slide_number = slide_index + 1
+    n_slides = state.get("n_slides", 0)
+
+    # 슬라이드 순서에 따른 맞춤형 구조 설정
+    if slide_index == 0:
+        # 첫 슬라이드: 도입부 포함
+        structure = (
+            "1) 인트로: 강사 인사 및 강의 전체 주제 소개\n"
+            "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
+            "3) 전환: 다음 슬라이드 내용 예고"
+        )
+    elif slide_number == n_slides:
+        # 마지막 슬라이드: 결론 및 마무리 인사 포함
+        structure = (
+            "1) 연결: 이전 내용과의 연결성 언급\n"
+            "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
+            "3) 마무리: 전체 강의 요약 및 감사 인사와 종료 멘트"
+        )
+    else:
+        # 중간 슬라이드: 군더더기 없는 본론 전개
+        structure = (
+            "1) 연결: 이전 슬라이드에서 자연스럽게 이어지는 전환 문구\n"
+            "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
+            "3) 전환: 다음 단계나 슬라이드로 넘어가는 문장"
+        )
 
     system_msg = SystemMessage(
         content=(
-            "당신은 대학 강의 발표 대본 작성 보조 에이전트입니다.\n"
-            "슬라이드 요약을 바탕으로 60~90초 분량의 발표 대본을 작성하세요.\n\n"
-            "## 구조\n"
-            "1) 인트로: 주제 소개\n"
-            "2) 설명: 핵심 내용 전달\n"
-            "3) 마무리: 정리 및 다음 슬라이드 연결\n\n"
-            "## 규칙\n"
-            "- 읽으면 바로 발표할 수 있는 자연스러운 구어체로 작성\n"
-            "- '~습니다', '~합니다' 체 사용\n"
-            "- 슬라이드에 없는 내용을 임의로 추가하지 마세요\n"
-            "- 시간 표시, 장면 지시문 등은 포함하지 마세요\n"
-            f"- 말투/톤: {prompt_config.get('tone', DEFAULT_TONE)}"
+            "당신은 전문적인 대학 강의 에이전트입니다.\n"
+            "슬라이드 요약을 바탕으로 60~90초 분량의 자연스러운 발표 대본을 작성하세요.\n\n"
+            f"## 권장 구조\n{structure}\n\n"
+            "## 핵심 규칙\n"
+            "- 모든 슬라이드에서 '안녕하세요'라고 인사하지 마세요. 인사는 첫 슬라이드에서만 수행합니다.\n"
+            "- 청중에게 직접 이야기하는 듯한 자연스러운 구어체(~습니다, ~해요)를 사용하세요.\n"
+            "- 슬라이드 간 흐름이 끊기지 않도록 연결 문구에 신경 써주세요.\n"
+            f"- 요청된 말투/톤: {prompt_config.get('tone', DEFAULT_TONE)}"
         )
     )
 
