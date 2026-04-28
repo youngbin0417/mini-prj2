@@ -11,10 +11,12 @@ interface Job {
   video_url: string | null;
   filename: string;
   created_at: number;
+  summary?: string | null;
 }
 
 const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [selectedSummary, setSelectedSummary] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -105,24 +107,37 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {job.status === 'completed' && job.video_url && (
+                      {job.status === 'completed' && (
                         <>
-                          <a 
-                            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
-                            target="_blank" 
-                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="미리보기"
-                          >
-                            <Play size={18} />
-                          </a>
-                          <a 
-                            href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
-                            download 
-                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="다운로드"
-                          >
-                            <Download size={18} />
-                          </a>
+                          {job.summary && (
+                            <button
+                              onClick={() => setSelectedSummary(job.summary || null)}
+                              className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              title="핵심 요약 보기"
+                            >
+                              <CheckCircle2 size={18} />
+                            </button>
+                          )}
+                          {job.video_url && (
+                            <>
+                              <a 
+                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
+                                target="_blank" 
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="미리보기"
+                              >
+                                <Play size={18} />
+                              </a>
+                              <a 
+                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
+                                download 
+                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="다운로드"
+                              >
+                                <Download size={18} />
+                              </a>
+                            </>
+                          )}
                         </>
                       )}
                       <div className="relative" ref={openDropdown === job.job_id ? dropdownRef : null}>
@@ -153,6 +168,39 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
           </tbody>
         </table>
       </div>
+
+      {/* Summary Modal */}
+      {selectedSummary && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-amber-50 p-8 text-center">
+              <div className="bg-amber-100 text-amber-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">강의 핵심 요약</h3>
+              <p className="text-amber-700/70 text-sm font-medium">AI가 분석한 강의의 가장 중요한 포인트입니다.</p>
+            </div>
+            <div className="p-8">
+              <div className="space-y-4">
+                {selectedSummary.split('\n').filter(line => line.trim()).map((line, i) => (
+                  <div key={i} className="flex gap-4 group">
+                    <span className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-sm group-hover:bg-primary group-hover:text-white transition-colors">
+                      {i + 1}
+                    </span>
+                    <p className="text-slate-600 leading-relaxed font-medium pt-1">{line.replace(/^[-\d.]\s*/, '')}</p>
+                  </div>
+                ))}
+              </div>
+              <button 
+                onClick={() => setSelectedSummary(null)}
+                className="w-full mt-10 bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 active:scale-[0.98]"
+              >
+                확인했습니다
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

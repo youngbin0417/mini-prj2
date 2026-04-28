@@ -46,6 +46,7 @@ class State(TypedDict, total=False):
     scripts: list[str]
     slide_images: list[str]
     final_video: str
+    summary: str
 
 
 def ensure_runtime_requirements() -> None:
@@ -326,6 +327,7 @@ def node_parse_all(state: State) -> State:
     state["audios"] = []
     state["videos"] = []
     state["slide_images"] = []
+    state["summary"] = ""
     return state
 
 
@@ -490,6 +492,29 @@ def node_acc_step(state: State) -> State:
     return state
 
 
+def node_summary(state: State) -> State:
+    page_contents = state.get("page_contents", [])
+    if not page_contents:
+        return state
+
+    all_contents = "\n".join(page_contents)
+    
+    system_msg = SystemMessage(
+        content=(
+            "다음은 전체 강의 내용입니다.\n"
+            "핵심 요약 3줄을 강의 톤에 맞춰 작성해주세요.\n\n"
+            "[규칙]\n"
+            "- 가장 중요한 포인트 3가지만 간결하게 설명할 것.\n"
+            f"- 요청된 말투/톤: {state.get('prompt', {}).get('tone', DEFAULT_TONE)}"
+        )
+    )
+    user_msg = HumanMessage(content=all_contents)
+    response = build_llm().invoke([system_msg, user_msg])
+    state["summary"] = str(response.content).strip()
+    
+    return state
+
+
 def node_concat(state: State) -> State:
     output_path = os.path.join(state["work_dir"], "final_lecture_video.mp4")
     concat_videos_ffmpeg(state["videos"], output_path, reencode=True)
@@ -510,6 +535,7 @@ def build_graph():
     builder.add_node("tts", node_tts)
     builder.add_node("make_video", node_make_video)
     builder.add_node("acc_step", node_acc_step)
+    builder.add_node("summary", node_summary)
     builder.add_node("concat", node_concat)
 
     builder.add_edge(START, "parse_all")
@@ -519,7 +545,8 @@ def build_graph():
     builder.add_edge("gen_script_ctx", "tts")
     builder.add_edge("tts", "make_video")
     builder.add_edge("make_video", "acc_step")
-    builder.add_conditional_edges("acc_step", decide_next_step, {"CONTINUE": "tool_search", "END": "concat"})
+    builder.add_conditional_edges("acc_step", decide_next_step, {"CONTINUE": "tool_search", "END": "summary"})
+    builder.add_edge("summary", "concat")
     builder.add_edge("concat", END)
     return builder.compile()
 

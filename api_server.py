@@ -46,6 +46,7 @@ class JobStatus(BaseModel):
     progress: float
     message: str
     video_url: str | None = None
+    summary: str | None = None
     created_at: float
 
 def process_pipeline_task(job_id: str, pptx_path: Path, work_dir: Path, tone: str, voice: str, style: str):
@@ -60,6 +61,8 @@ def process_pipeline_task(job_id: str, pptx_path: Path, work_dir: Path, tone: st
             voice=voice,
             style=style
         )
+        
+        jobs[job_id]["summary"] = final_state.get("summary", "")
         
         video_path = final_state.get("final_video")
         if video_path and os.path.exists(video_path):
@@ -112,6 +115,7 @@ async def create_job(
         "progress": 0.0,
         "message": "작업을 준비 중입니다...",
         "video_url": None,
+        "summary": None,
         "created_at": time.time(),
         "filename": file.filename
     }
