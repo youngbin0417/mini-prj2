@@ -100,7 +100,7 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                   <td className="px-6 py-4">
                     <p className="text-xs text-slate-500 mb-1.5 truncate max-w-[150px]">{job.message}</p>
                     <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className={`h-full transition-all duration-500 ${job.status === 'failed' ? 'bg-red-400' : 'bg-primary'}`}
                         style={{ width: `${job.status === 'completed' ? 100 : (job.status === 'processing' ? 60 : 10)}%` }}
                       />
@@ -121,17 +121,17 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                           )}
                           {job.video_url && (
                             <>
-                              <a 
-                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
-                                target="_blank" 
+                              <a
+                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`}
+                                target="_blank"
                                 className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                 title="미리보기"
                               >
                                 <Play size={18} />
                               </a>
-                              <a 
-                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`} 
-                                download 
+                              <a
+                                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${job.video_url}`}
+                                download
                                 className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                 title="다운로드"
                               >
@@ -142,13 +142,13 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                         </>
                       )}
                       <div className="relative" ref={openDropdown === job.job_id ? dropdownRef : null}>
-                        <button 
+                        <button
                           onClick={() => setOpenDropdown(openDropdown === job.job_id ? null : job.job_id)}
                           className={`p-2 rounded-lg transition-colors ${openDropdown === job.job_id ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                         >
                           <MoreVertical size={18} />
                         </button>
-                        
+
                         {openDropdown === job.job_id && (
                           <div className="absolute right-0 mt-2 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-10">
                             <button
@@ -188,11 +188,11 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                     <span className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-sm group-hover:bg-primary group-hover:text-white transition-colors">
                       {i + 1}
                     </span>
-                    <p className="text-slate-600 leading-relaxed font-medium pt-1">{line.replace(/^[-\d.]\s*/, '')}</p>
+                    <p className="text-slate-600 leading-relaxed font-medium pt-1">{line.replace(/^[-\d]\s*/, '')}</p>
                   </div>
                 ))}
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedSummary(null)}
                 className="w-full mt-10 bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200 active:scale-[0.98]"
               >
