@@ -38,41 +38,36 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
         onRefresh();
       } catch (error) {
         console.error('Failed to delete job:', error);
-        alert('삭제 중 오류가 발생했습니다.');
-      }
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
+        alert('�  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit"><CheckCircle2 size={12} /> 제작 완료</span>;
+        return <span className="p-1.5 bg-green-100 text-green-700 rounded-full flex items-center justify-center w-fit" title="완료"><CheckCircle2 size={14} /></span>;
       case 'processing':
         return <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit"><Loader2 size={12} className="animate-spin" /> 제작 중...</span>;
       case 'pending':
         return <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit">대기 중</span>;
       case 'failed':
-        return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit"><AlertCircle size={12} /> 생성 실패</span>;
+        return <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold flex items-center gap-1.5 w-fit"><AlertCircle size={12} /> 실패</span>;
       default:
         return null;
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-full flex flex-col">
       <div className="p-6 border-b border-slate-50 flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-900">제작 기록</h2>
         <button onClick={onRefresh} className="text-blue-600 text-sm font-medium hover:underline">새로고침</button>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto flex-1">
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50/50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <th className="px-6 py-4">강의명</th>
-              <th className="px-6 py-4">제작 시간</th>
-              <th className="px-6 py-4">상태</th>
-              <th className="px-6 py-4">진행 상황</th>
-              <th className="px-6 py-4 text-right">관리</th>
+              <th className="px-4 py-4">강의명</th>
+              <th className="px-4 py-4">시간</th>
+              <th className="px-4 py-4">상태</th>
+              <th className="px-4 py-4">진행</th>
+              <th className="px-4 py-4 text-right">관리</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
@@ -83,7 +78,7 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
             ) : (
               jobs.map((job) => (
                 <tr key={job.job_id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
                         <FileVideo size={18} />
@@ -91,21 +86,26 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                       <span className="font-semibold text-slate-700 truncate max-w-[200px]">{job.filename}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">
+                  <td className="px-4 py-3 text-sm text-slate-500">
                     {new Date(job.created_at * 1000).toLocaleString('ko-KR')}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     {getStatusBadge(job.status)}
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="text-xs text-slate-500 mb-1.5 truncate max-w-[150px]">{job.message}</p>
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-500 ${job.status === 'failed' ? 'bg-red-400' : 'bg-primary'}`}
-                        style={{ width: `${job.status === 'completed' ? 100 : (job.status === 'processing' ? 60 : 10)}%` }}
-                      />
-                    </div>
+                  <td className="px-4 py-3">
+                    {job.status !== 'completed' && (
+                      <>
+                        <p className="text-xs text-slate-500 mb-1.5 truncate max-w-[150px]">{job.message}</p>
+                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-500 ${job.status === 'failed' ? 'bg-red-400' : 'bg-primary'}`}
+                            style={{ width: `${job.status === 'processing' ? 60 : 10}%` }}
+                          />
+                        </div>
+                      </>
+                    )}
                   </td>
+
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       {job.status === 'completed' && (
