@@ -9,6 +9,10 @@ const UploadForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
+  const [passcode, setPasscode] = useState('');
+
+  // 설정된 관리자 암호
+  const ADMIN_PASSCODE = "aivle202609";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -20,6 +24,11 @@ const UploadForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
+
+    if (passcode !== ADMIN_PASSCODE) {
+      setError('관리자 암호가 올바르지 않습니다.');
+      return;
+    }
 
     setIsUploading(true);
     const formData = new FormData();
@@ -76,6 +85,17 @@ const UploadForm = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
               </>
             )}
           </div>
+        </div>
+
+        <div className="mt-6">
+          <label className="block text-sm font-semibold text-slate-700 mb-2">관리자 암호</label>
+          <input
+            type="password"
+            placeholder="업로드를 위해 암호를 입력하세요"
+            value={passcode}
+            onChange={(e) => setPasscode(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+          />
         </div>
 
         <AnimatePresence>
