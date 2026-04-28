@@ -133,6 +133,24 @@ async def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
     return jobs[job_id]
 
+@app.delete("/api/jobs/{job_id}")
+async def delete_job(job_id: str):
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다.")
+    
+    # 딕셔너리에서 제거
+    del jobs[job_id]
+    
+    # 관련된 파일/폴더 삭제
+    work_dir = DEFAULT_RUNS_DIR / f"run-{job_id}"
+    video_path = DEFAULT_RUNS_DIR / f"{job_id}.mp4"
+    
+    shutil.rmtree(work_dir, ignore_errors=True)
+    if video_path.exists():
+        video_path.unlink(missing_ok=True)
+        
+    return {"message": "삭제되었습니다."}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

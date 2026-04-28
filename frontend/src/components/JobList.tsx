@@ -1,7 +1,8 @@
 "use client";
 
-import React from 'react';
-import { Play, Download, MoreVertical, FileVideo, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Play, Download, MoreVertical, FileVideo, Loader2, AlertCircle, CheckCircle2, Trash2 } from 'lucide-react';
+import api from '@/lib/api';
 
 interface Job {
   job_id: string;
@@ -13,6 +14,32 @@ interface Job {
 }
 
 const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) => {
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleDelete = async (jobId: string) => {
+    if (window.confirm('정말 이 강의 기록과 파일을 삭제하시겠습니까?')) {
+      try {
+        await api.delete(`/api/jobs/${jobId}`);
+        setOpenDropdown(null);
+        onRefresh();
+      } catch (error) {
+        console.error('Failed to delete job:', error);
+        alert('삭제 중 오류가 발생했습니다.');
+      }
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -98,9 +125,26 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                           </a>
                         </>
                       )}
-                      <button className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
-                        <MoreVertical size={18} />
-                      </button>
+                      <div className="relative" ref={openDropdown === job.job_id ? dropdownRef : null}>
+                        <button 
+                          onClick={() => setOpenDropdown(openDropdown === job.job_id ? null : job.job_id)}
+                          className={`p-2 rounded-lg transition-colors ${openDropdown === job.job_id ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                        >
+                          <MoreVertical size={18} />
+                        </button>
+                        
+                        {openDropdown === job.job_id && (
+                          <div className="absolute right-0 mt-2 w-36 bg-white rounded-xl shadow-lg border border-slate-100 py-1 z-10">
+                            <button
+                              onClick={() => handleDelete(job.job_id)}
+                              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                              삭제하기
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
