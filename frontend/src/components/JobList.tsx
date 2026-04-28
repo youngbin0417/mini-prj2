@@ -38,7 +38,12 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
         onRefresh();
       } catch (error) {
         console.error('Failed to delete job:', error);
-        alert('�  const getStatusBadge = (status: string) => {
+        alert('삭제에 실패했습니다.');
+      }
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
         return <span className="p-1.5 bg-green-100 text-green-700 rounded-full flex items-center justify-center w-fit" title="완료"><CheckCircle2 size={14} /></span>;
