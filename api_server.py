@@ -27,8 +27,8 @@ app = FastAPI(title="AI Instructor API", version="1.0.0")
 # CORS 설정 (프론트엔드와 통신을 위해 필요)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["*"], # 배포 환경에서는 Vercel 도메인으로 변경하는 것을 권장합니다. 예: ["https://my-vercel-app.vercel.app"]
+    allow_credentials=False, # allow_origins=["*"]와 allow_credentials=True는 함께 사용할 수 없습니다.
     allow_methods=["*"],
     allow_headers=["*"],
 )

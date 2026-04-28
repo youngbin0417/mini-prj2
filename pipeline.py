@@ -400,23 +400,19 @@ def node_gen_script(state: State) -> State:
     slide_number = slide_index + 1
     n_slides = state.get("n_slides", 0)
 
-    # 슬라이드 순서에 따른 맞춤형 구조 설정
     if slide_index == 0:
-        # 첫 슬라이드: 도입부 포함
         structure = (
             "1) 인트로: 강사 인사 및 강의 전체 주제 소개\n"
             "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
             "3) 전환: 다음 슬라이드 내용 예고"
         )
     elif slide_number == n_slides:
-        # 마지막 슬라이드: 결론 및 마무리 인사 포함
         structure = (
             "1) 연결: 이전 내용과의 연결성 언급\n"
             "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
             "3) 마무리: 전체 강의 요약 및 감사 인사와 종료 멘트"
         )
     else:
-        # 중간 슬라이드: 군더더기 없는 본론 전개
         structure = (
             "1) 연결: 이전 슬라이드에서 자연스럽게 이어지는 전환 문구\n"
             "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"

@@ -35,4 +35,5 @@ RUN mkdir -p webio
 EXPOSE 8000
 
 # xvfb-run을 사용하여 GUI가 없는 환경에서도 LibreOffice가 작동하도록 설정
-CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000"]
+# Railway 등 클라우드 배포를 위해 동적 포트($PORT) 지원
+CMD sh -c "uvicorn api_server:app --host 0.0.0.0 --port ${PORT:-8000}"
