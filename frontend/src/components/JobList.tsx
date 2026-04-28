@@ -12,6 +12,7 @@ interface Job {
   filename: string;
   created_at: number;
   summary?: string | null;
+  summary_img?: string | null;
 }
 
 const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) => {
@@ -109,9 +110,9 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
                     <div className="flex items-center justify-end gap-2">
                       {job.status === 'completed' && (
                         <>
-                          {job.summary && (
+                          {(job.summary_img || job.summary) && (
                             <button
-                              onClick={() => setSelectedSummary(job.summary || null)}
+                              onClick={() => setSelectedSummary(job.summary_img || job.summary || null)}
                               className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                               title="핵심 요약 보기"
                             >
