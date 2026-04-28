@@ -125,8 +125,11 @@ def render_mp4(image_path: str, audio_path: str, out_mp4: str, width: int = 1920
 
 
 def make_summary_video(summary_text: str, audio_path: str, out_path: str) -> None:
-    # Try to find a common Korean font on Windows
+    # Try to find a common Korean font on Windows and Linux
     font_paths = [
+        "/usr/share/fonts/truetype/nanum/NanumBarunGothic.ttf", # Linux Docker
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",      # Linux Docker
+        "/usr/share/fonts/truetype/nanum/NanumGothicCoding.ttf",# Linux Docker
         "C:/Windows/Fonts/malgun.ttf",  # Malgun Gothic
         "C:/Windows/Fonts/batang.ttc",  # Batang
         "C:/Windows/Fonts/gulim.ttc",   # Gulim
@@ -140,35 +143,50 @@ def make_summary_video(summary_text: str, audio_path: str, out_path: str) -> Non
     # If no specific font found, let ffmpeg try to find one or use default
     font_clause = f"fontfile='{font_path}':" if font_path else ""
 
-    clean_text_str = summary_text.replace("'", "").replace("\n", " ")
+    work_dir = os.path.dirname(out_path)
+    text_file_path = os.path.join(work_dir, "summary_text.txt")
+    with open(text_file_path, "w", encoding="utf-8") as f:
+        f.write(summary_text)
+
+    # 1. Create a 1920x1080 black image first (extremely light for memory)
+    black_img_path = os.path.join(work_dir, "black_bg.png")
+    subprocess.run([
+        "ffmpeg", "-y", "-f", "lavfi", "-i", "color=c=black:s=1920x1080",
+        "-frames:v", "1", black_img_path
+    ], check=True)
+
+    duration = ffprobe_duration(audio_path)
+    escaped_text_file_path = text_file_path.replace("\\", "/").replace(":", "\\:")
+
+    # 2. Render summary video using the black image (more memory efficient than lavfi)
     cmd = [
         "ffmpeg",
         "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "color=c=black:s=1920x1080:r=25",
-        "-i",
-        audio_path,
+        "-loop", "1",
+        "-i", black_img_path,
+        "-i", audio_path,
+        "-t", str(duration),
         "-vf",
         (
             f"drawtext={font_clause}"
-            f"text='{clean_text_str}':"
+            f"textfile='{escaped_text_file_path}':"
             "fontcolor=white:fontsize=60:x=(w-text_w)/2:y=(h-text_h)/2:"
             "line_spacing=30"
         ),
-        "-c:v",
-        "libx264",
-        "-c:a",
-        "aac",
-        "-shortest",
+        "-c:v", "libx264",
+        "-threads", "1",
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
         out_path,
     ]
 
     subprocess.run(cmd, check=True)
 
 
-def export_slide_as_png(state: dict[str, Any], dpi: int = 220) -> dict[str, Any]:
+def export_slide_as_png(state: dict[str, Any], dpi: int = 150) -> dict[str, Any]:
     work_dir = Path(state["work_dir"]).expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -251,6 +269,8 @@ def export_slide_as_png(state: dict[str, Any], dpi: int = 220) -> dict[str, Any]
         "-png",
         "-r",
         str(dpi),
+        "-scale-to",
+        "1920",
         str(pdf_path),
         str(out_prefix),
     ]
@@ -275,27 +295,20 @@ def concat_videos_ffmpeg(video_paths: list[str], out_path: str, reencode: bool =
             file.write(f"file '{os.path.abspath(video_path)}'\n")
 
     if reencode:
+        # Robust concatenation: Ensure all streams are scaled/padded to 1920x1080 yuv420p before encoding
+        # This prevents resolution mismatches between slides and summary.
         cmd = [
             "ffmpeg",
             "-y",
-            "-safe",
-            "0",
-            "-f",
-            "concat",
-            "-i",
-            list_path,
-            "-vf",
-            "format=yuv420p",
-            "-c:v",
-            "libx264",
-            "-threads",
-            "1",
-            "-preset",
-            "veryfast",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "192k",
+            "-safe", "0",
+            "-f", "concat",
+            "-i", list_path,
+            "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+            "-c:v", "libx264",
+            "-threads", "1",
+            "-preset", "veryfast",
+            "-c:a", "aac",
+            "-b:a", "192k",
             out_path,
         ]
     else:
