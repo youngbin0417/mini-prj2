@@ -34,12 +34,6 @@ class State(TypedDict, total=False):
     slides: list[dict[str, Any]]
     n_slides: int
     slide_index: int
-    cur_search_context: str
-    cur_page_content: str
-    cur_script: str
-    cur_audio: str
-    cur_video: str
-    cur_slide_image: str
     audios: list[str]
     videos: list[str]
     page_contents: list[str]
@@ -47,6 +41,7 @@ class State(TypedDict, total=False):
     slide_images: list[str]
     final_video: str
     summary: str
+    summary_img: str
 
 
 def ensure_runtime_requirements() -> None:
@@ -127,6 +122,50 @@ def render_mp4(image_path: str, audio_path: str, out_mp4: str, width: int = 1920
         out_mp4,
     ]
     subprocess.check_call(cmd)
+
+
+def make_summary_video(summary_text: str, audio_path: str, out_path: str) -> None:
+    # Try to find a common Korean font on Windows
+    font_paths = [
+        "C:/Windows/Fonts/malgun.ttf",  # Malgun Gothic
+        "C:/Windows/Fonts/batang.ttc",  # Batang
+        "C:/Windows/Fonts/gulim.ttc",   # Gulim
+    ]
+    font_path = ""
+    for p in font_paths:
+        if os.path.exists(p):
+            font_path = p
+            break
+
+    # If no specific font found, let ffmpeg try to find one or use default
+    font_clause = f"fontfile='{font_path}':" if font_path else ""
+
+    clean_text_str = summary_text.replace("'", "").replace("\n", " ")
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=1920x1080:r=25",
+        "-i",
+        audio_path,
+        "-vf",
+        (
+            f"drawtext={font_clause}"
+            f"text='{clean_text_str}':"
+            "fontcolor=white:fontsize=60:x=(w-text_w)/2:y=(h-text_h)/2:"
+            "line_spacing=30"
+        ),
+        "-c:v",
+        "libx264",
+        "-c:a",
+        "aac",
+        "-shortest",
+        out_path,
+    ]
+
+    subprocess.run(cmd, check=True)
 
 
 def export_slide_as_png(state: dict[str, Any], dpi: int = 220) -> dict[str, Any]:
@@ -332,186 +371,297 @@ def node_parse_all(state: State) -> State:
 
 
 def node_tool_search(state: State) -> State:
-    slide = state["slides"][state["slide_index"]]
-    title = slide.get("title", "")
-    if not title:
-        state["cur_search_context"] = "검색할 제목이 없어 검색을 수행하지 않았습니다."
-        return state
-
+    """실제 검색을 수행하고 요약된 문자열을 각 슬라이드에 반환하는 노드"""
+    slides = state.get("slides", [])
     search = TavilySearch(max_results=3)
-    try:
-        state["cur_search_context"] = str(search.run(title))
-    except Exception as exc:
-        state["cur_search_context"] = f"검색 중 오류 발생: {exc}"
+
+    for slide in slides:
+        title = slide.get("title", "")
+        if title:
+            try:
+                slide["search_context"] = str(search.run(title))
+            except Exception as exc:
+                slide["search_context"] = f"검색 중 오류 발생: {exc}"
+        else:
+            slide["search_context"] = "검색할 제목이 없어 검색을 수행하지 않았습니다."
+
     return state
 
 
 def node_gen_page(state: State) -> State:
-    slide = state["slides"][state["slide_index"]]
-    texts = slide.get("texts", [])
-    tables = slide.get("tables", [])
-    images = slide.get("images", [])
-    snap = slide.get("snap")
-    search_context = state.get("cur_search_context", "")
+    """슬라이드 정보를 종합하여 핵심 요약을 작성하는 노드 (일괄 처리)"""
+    slides = state.get("slides", [])
     prompt_config = state["prompt"]
+    state["page_contents"] = []
 
-    table_snip = ""
-    if tables:
-        try:
-            table_snip = "\n".join(" | ".join(map(str, row)) for row in tables[0][:6])
-        except Exception:
-            table_snip = str(tables[0][:6])
+    for slide in slides:
+        texts = slide.get("texts", [])
+        tables = slide.get("tables", [])
+        images = slide.get("images", [])
+        snap = slide.get("snap")
+        search_info = slide.get("search_context", "관련 외부 정보 없음")
 
-    combined_images: list[str] = []
-    if snap:
-        combined_images.append(snap)
-    for image in images:
-        if image not in combined_images:
-            combined_images.append(image)
+        table_snip = ""
+        if tables:
+            try:
+                table_snip = "\n".join(" | ".join(map(str, row)) for row in tables[0][:6])
+            except Exception:
+                table_snip = str(tables[0][:6])
 
-    system_msg = SystemMessage(
-        content=f"""
+        combined_images: list[str] = []
+        if snap:
+            combined_images.append(snap)
+        for image in images:
+            if image not in combined_images:
+                combined_images.append(image)
+
+        system_msg = SystemMessage(
+            content=f"""
 당신은 전문적인 AI 강사입니다.
-슬라이드의 텍스트, 표, 이미지 및 검색된 외부 정보를 종합하여 슬라이드 핵심 요약을 작성하세요.
+슬라이드의 텍스트, 표, 이미지를 종합하여 슬라이드 핵심 요약을 작성하세요.
 
+아래 작성 규칙을 준수하여 작성하세요
 [작성 규칙]
 1. 단락 구성: 반드시 4문장에서 6문장 사이의 하나의 단락으로 작성하세요.
-2. 불릿 금지: 나열식 기호(-, *, •)나 숫자를 절대 사용하지 마세요.
-3. 이미지 통합: 첨부된 이미지에서 보이는 시각적 특징을 요약에 포함하세요.
-4. 객관성: 제공된 데이터와 검색 결과에 기반하여 사실적으로 작성하세요.
+2. 불릿 금지: 나열식 기호( -, *, • )나 숫자를 절대 사용하지 마세요. 모든 내용은 서술형 문장으로 이어져야 합니다.
+3. 이미지 통합: 첨부된 이미지에서 보이는 시각적 정보나 도표의 특징을 요약 내용에 자연스럽게 포함하세요.
+4. 객관성: 추측이나 과장된 표현을 배제하고, 제공된 데이터에만 기반하여 사실적으로 작성하세요.
 5. 요약 스타일: {prompt_config.get("style", DEFAULT_STYLE)}
 """.strip()
-    )
+        )
 
-    user_text = (
-        f"[슬라이드 텍스트]\n{texts if texts else '(없음)'}\n\n"
-        f"[표 데이터]\n{table_snip if table_snip else '(없음)'}\n\n"
-        f"[추가 검색 정보]\n{search_context if search_context else '(없음)'}"
-    )
-    user_content: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
+        user_text = (
+            f"[텍스트]\n{texts if texts else '(없음)'}\n\n"
+            f"[표 요약]\n{table_snip if table_snip else '(없음)'}\n\n"
+            f"[외부 참고 지식]\n{search_info}"
+        )
+        user_content: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
 
-    for image_path in combined_images[:3]:
-        user_content.append({"type": "image_url", "image_url": {"url": img_to_data_url(image_path)}})
+        for image_path in combined_images[:3]:
+            try:
+                user_content.append({"type": "image_url", "image_url": {"url": img_to_data_url(image_path)}})
+            except Exception:
+                pass
 
-    response = build_llm().invoke([system_msg, HumanMessage(content=user_content)])
-    state["cur_page_content"] = str(response.content).strip()
+        response = build_llm().invoke([system_msg, HumanMessage(content=user_content)])
+        state["page_contents"].append(str(response.content).strip())
+
     return state
 
 
 def node_gen_script(state: State) -> State:
-    page_content = state.get("cur_page_content", "")
+    idx = state.get("slide_index", 0)
+    slides = state.get("slides", [])
+    n_slides = state.get("n_slides", len(slides))
+
+    if idx >= len(slides):
+        return state
+
+    page_content = state.get("page_contents", [])[idx]
     prompt_config = state.get("prompt", {})
     work_dir = state.get("work_dir", ".")
-    slide_index = state.get("slide_index", 0)
-    slide_number = slide_index + 1
-    n_slides = state.get("n_slides", 0)
 
-    if slide_index == 0:
-        structure = (
-            "1) 인트로: 강사 인사 및 강의 전체 주제 소개\n"
-            "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
-            "3) 전환: 다음 슬라이드 내용 예고"
-        )
-    elif slide_number == n_slides:
-        structure = (
-            "1) 연결: 이전 내용과의 연결성 언급\n"
-            "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
-            "3) 마무리: 전체 강의 요약 및 감사 인사와 종료 멘트"
-        )
+    is_first = (idx == 0)
+    is_last = (idx == n_slides - 1)
+
+    # 이전 슬라이드 대본 가져오기
+    all_scripts = state.get("scripts", [])
+    if is_first:
+        previous_script = "이전 슬라이드 없음"
     else:
-        structure = (
-            "1) 연결: 이전 슬라이드에서 자연스럽게 이어지는 전환 문구\n"
-            "2) 설명: 이번 슬라이드의 핵심 내용 상세 설명\n"
-            "3) 전환: 다음 단계나 슬라이드로 넘어가는 문장"
-        )
+        previous_script = all_scripts[idx - 1] if idx - 1 < len(all_scripts) else ""
+        previous_script = previous_script[-200:] if len(previous_script) > 200 else previous_script
+
+    # 마지막 슬라이드에서는 다음 슬라이드 요약을 넘기지 않음
+    if is_last:
+        next_context = "현재 슬라이드는 마지막 슬라이드입니다. 다음 슬라이드가 없습니다."
+    elif idx + 1 < len(state.get("page_contents", [])):
+        raw_next = state["page_contents"][idx + 1]
+        next_context = raw_next[:200] if len(raw_next) > 200 else raw_next
+    else:
+        next_context = "다음 슬라이드 요약 없음"
 
     system_msg = SystemMessage(
-        content=(
-            "당신은 전문적인 대학 강의 에이전트입니다.\n"
-            "슬라이드 요약을 바탕으로 60~90초 분량의 자연스러운 발표 대본을 작성하세요.\n\n"
-            f"## 권장 구조\n{structure}\n\n"
-            "## 핵심 규칙\n"
-            "- 모든 슬라이드에서 '안녕하세요'라고 인사하지 마세요. 인사는 첫 슬라이드에서만 수행합니다.\n"
-            "- 청중에게 직접 이야기하는 듯한 자연스러운 구어체(~습니다, ~해요)를 사용하세요.\n"
-            "- 슬라이드 간 흐름이 끊기지 않도록 연결 문구에 신경 써주세요.\n"
-            f"- 요청된 말투/톤: {prompt_config.get('tone', DEFAULT_TONE)}"
-        )
+        content=f"""
+당신은 대학 강의 발표 대본 작성 보조 에이전트입니다.
+슬라이드 요약을 바탕으로 60~90초 분량의 발표 대본을 작성하세요.
+
+[현재 슬라이드 정보]
+- 현재 슬라이드 번호: {idx + 1}
+- 전체 슬라이드 수: {n_slides}
+- 첫 번째 슬라이드 여부: {is_first}
+- 마지막 슬라이드 여부: {is_last}
+
+[작성 지침]
+현재 슬라이드 1장에 해당하는 발표 스크립트만 작성하세요.
+전체 발표 흐름은 고려하되, 현재 슬라이드의 핵심 내용이 중심이 되어야 합니다.
+이전 스크립트는 자연스러운 연결을 위한 참고용이며, 이전 문장을 반복하지 마세요.
+슬라이드에 없는 내용을 임의로 추가하지 마세요.
+
+첫 번째 슬라이드라면 반드시 간단한 인사로 시작하세요.
+예: "안녕하세요. 오늘은 ~에 대해 이야기해보겠습니다."
+
+두 번째 이후 슬라이드라면 인사말을 사용하지 마세요.
+두 번째 이후 슬라이드는 이전 내용에서 현재 내용으로 자연스럽게 연결하세요.
+
+마지막 슬라이드라면 발표 전체를 자연스럽게 마무리하세요.
+마지막 슬라이드에서는 절대 다음 슬라이드, 다음 내용, 이후 내용을 언급하지 마세요.
+
+마지막 슬라이드가 아니라면 "감사합니다", "이상입니다", "마치겠습니다" 같은 종료 표현을 사용하지 마세요.
+
+[금지 표현]
+- 다음 슬라이드에서는
+- 다음 슬라이드에서
+- 다음으로는
+- 이후에는
+- 뒤에서 설명하겠습니다
+- 이어서
+- 계속해서
+
+[규칙]
+- 불릿 기호(-, •, *) 사용 금지
+- 번호 목록 사용 금지
+- 코드블록 사용 금지
+- 자연스러운 구어체로 작성
+- '~습니다', '~합니다' 체 사용
+- 숫자와 용어는 원문 기준으로 정확하게 유지
+- 이전 슬라이드와 같은 문장 구조를 반복하지 않기
+- 말투/톤: {prompt_config.get('tone', DEFAULT_TONE)}
+- 스타일: {prompt_config.get('style', DEFAULT_STYLE)}
+""".strip()
     )
 
-    response = build_llm().invoke(
-        [system_msg, HumanMessage(content=[{"type": "text", "text": f"[슬라이드 요약]\n{page_content}"}])]
+    user_msg = HumanMessage(
+        content=f"""
+[이전 슬라이드 대본 맥락]
+{previous_script}
+
+[현재 슬라이드 요약]
+{page_content}
+
+[다음 슬라이드 참고 정보]
+{next_context}
+
+주의:
+다음 슬라이드 참고 정보는 전체 흐름 파악용입니다.
+대본 안에서 다음 슬라이드를 예고하거나 언급하지 마세요.
+""".strip()
     )
+
+    response = build_llm().invoke([system_msg, user_msg])
     script = str(response.content).strip()
-    script_path = os.path.join(work_dir, f"script_{slide_number}.txt")
+
+    bad_phrases = [
+        "다음 슬라이드에서는",
+        "다음 슬라이드에서",
+        "다음으로는",
+        "이후에는",
+        "뒤에서 설명하겠습니다",
+        "계속해서",
+    ]
+    for phrase in bad_phrases:
+        script = script.replace(phrase, "")
+
+    script_path = os.path.join(work_dir, f"script_{idx + 1}.txt")
     with open(script_path, "w", encoding="utf-8") as file:
         file.write(script)
 
-    state["cur_script"] = script
+    state["scripts"].append(script)
     return state
 
 
 def node_tts(state: State) -> State:
     client = OpenAI()
-    slide_number = state.get("slide_index", 0) + 1
+    idx = state.get("slide_index", 0)
+    script = state["scripts"][idx]
     response = client.audio.speech.create(
         model=TTS_MODEL,
         voice=state["prompt"].get("voice", DEFAULT_VOICE),
-        input=state["cur_script"],
+        input=script,
     )
-    mp3_path = os.path.join(state["work_dir"], f"narration_{slide_number}.mp3")
+    mp3_path = os.path.join(state["work_dir"], f"narration_{idx + 1}.mp3")
     with open(mp3_path, "wb") as file:
         file.write(response.content)
-    state["cur_audio"] = mp3_path
+    state["audios"].append(mp3_path)
     return state
 
 
 def node_make_video(state: State) -> State:
-    slide = state["slides"][state["slide_index"]]
+    idx = state.get("slide_index", 0)
+    slide = state["slides"][idx]
     slide_image = slide.get("snap")
-    audio_path = state.get("cur_audio")
-    slide_number = state.get("slide_index", 0) + 1
+    audio_path = state["audios"][idx]
+
     if not slide_image:
-        raise ValueError(f"Slide {slide_number}의 이미지 경로가 없습니다.")
+        raise ValueError(f"Slide {idx + 1}의 이미지 경로가 없습니다.")
     if not audio_path:
-        raise ValueError(f"Slide {slide_number}의 오디오 경로가 없습니다.")
+        raise ValueError(f"Slide {idx + 1}의 오디오 경로가 없습니다.")
 
-    output_path = os.path.join(state["work_dir"], f"slide_{slide_number}_video.mp4")
+    output_path = os.path.join(state["work_dir"], f"slide_{idx + 1}_video.mp4")
     render_mp4(slide_image, audio_path, output_path)
-    state["cur_video"] = output_path
-    state["cur_slide_image"] = slide_image
-    return state
-
-
-def node_acc_step(state: State) -> State:
-    state["audios"].append(state["cur_audio"])
-    state["videos"].append(state["cur_video"])
-    state["slide_images"].append(state["cur_slide_image"])
-    state["page_contents"].append(state["cur_page_content"])
-    state["scripts"].append(state["cur_script"])
-    state["slide_index"] += 1
+    state["videos"].append(output_path)
+    state["slide_index"] = idx + 1
     return state
 
 
 def node_summary(state: State) -> State:
+    """전체 내용을 요약하고 '3줄 핵심 요약' 영상을 제작하는 노드"""
     page_contents = state.get("page_contents", [])
     if not page_contents:
         return state
 
     all_contents = "\n".join(page_contents)
-    
-    system_msg = SystemMessage(
-        content=(
-            "다음은 전체 강의 내용입니다.\n"
-            "핵심 요약 3줄을 강의 톤에 맞춰 작성해주세요.\n\n"
-            "[규칙]\n"
-            "- 가장 중요한 포인트 3가지만 간결하게 설명할 것.\n"
-            f"- 요청된 말투/톤: {state.get('prompt', {}).get('tone', DEFAULT_TONE)}"
-        )
+
+    summary_prompt = f"""
+다음은 전체 강의 내용입니다.
+마지막에 시청자에게 전달할 '핵심 요약 3줄'을 강의 톤에 맞춰 작성해주세요.
+
+[강의 내용]
+{all_contents}
+
+[규칙]
+- 반드시 "마지막으로 오늘 배운 내용을 요약해 보겠습니다"라는 멘트로 시작할 것.
+- 가장 중요한 포인트 3가지만 간결하게 설명할 것.
+- 반드시 마지막에는 "이상으로 발표를 마칩니다. 들어주셔서 감사합니다."
+""".strip()
+
+    summary_img_prompt = f"""
+다음 강의 내용을 핵심만 3줄로 요약해줘.
+각 줄은 반드시 20자 내외로 작성하고, 각 포인트 앞에 숫자를 붙여줘.
+
+[강의 내용]
+{all_contents}
+
+[출력 형식 예시]
+1. 인공지능의 정의와 역사 이해
+2. 딥러닝 모델의 학습 원리 파악
+3. 실무 적용을 위한 파이프라인 구축
+""".strip()
+
+    llm = build_llm()
+    summary_script = llm.invoke(summary_prompt).content
+    summary_img = llm.invoke(summary_img_prompt).content.strip()
+
+    # 요약용 음성(TTS) 생성
+    summary_mp3_path = os.path.join(state["work_dir"], "summary_audio.mp3")
+    client = OpenAI()
+    resp = client.audio.speech.create(
+        model=TTS_MODEL,
+        voice=state["prompt"].get("voice", DEFAULT_VOICE),
+        input=summary_script,
     )
-    user_msg = HumanMessage(content=all_contents)
-    response = build_llm().invoke([system_msg, user_msg])
-    state["summary"] = str(response.content).strip()
-    
+    with open(summary_mp3_path, "wb") as f:
+        f.write(resp.content)
+
+    # 요약 영상 제작
+    summary_video_path = os.path.join(state["work_dir"], "summary_video.mp4")
+    make_summary_video(summary_img, summary_mp3_path, summary_video_path)
+
+    state["scripts"].append(summary_script)
+    state["videos"].append(summary_video_path)
+    state["summary"] = summary_script
+    state["summary_img"] = summary_img
+
     return state
 
 
@@ -534,7 +684,6 @@ def build_graph():
     builder.add_node("gen_script_ctx", node_gen_script)
     builder.add_node("tts", node_tts)
     builder.add_node("make_video", node_make_video)
-    builder.add_node("acc_step", node_acc_step)
     builder.add_node("summary", node_summary)
     builder.add_node("concat", node_concat)
 
@@ -544,8 +693,7 @@ def build_graph():
     builder.add_edge("gen_page", "gen_script_ctx")
     builder.add_edge("gen_script_ctx", "tts")
     builder.add_edge("tts", "make_video")
-    builder.add_edge("make_video", "acc_step")
-    builder.add_conditional_edges("acc_step", decide_next_step, {"CONTINUE": "tool_search", "END": "summary"})
+    builder.add_conditional_edges("make_video", decide_next_step, {"CONTINUE": "gen_script_ctx", "END": "summary"})
     builder.add_edge("summary", "concat")
     builder.add_edge("concat", END)
     return builder.compile()
