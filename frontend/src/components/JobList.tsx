@@ -31,6 +31,12 @@ const JobList = ({ jobs, onRefresh }: { jobs: Job[], onRefresh: () => void }) =>
   }, []);
 
   const handleDelete = async (jobId: string) => {
+    const inputPasscode = window.prompt('삭제를 위해 관리자 암호를 입력하세요:');
+    if (inputPasscode !== 'aivle202609') {
+      alert('암호가 올바르지 않습니다.');
+      return;
+    }
+
     if (window.confirm('정말 이 강의 기록과 파일을 삭제하시겠습니까?')) {
       try {
         await api.delete(`/api/jobs/${jobId}`);
